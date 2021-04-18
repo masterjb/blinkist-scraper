@@ -52,12 +52,15 @@ def generate_book_html(book_json_or_file, cover_img_file=False):
     book_html = book_html.replace("{__chapters__}", "\n".join(chapters_html))
     book_html = book_html.replace("<p>&nbsp;</p>", "")
 
-    # finally, export the finished book html
-    if not os.path.exists(filepath):
-        os.makedirs(filepath)
-    with open(html_file, "w", encoding="utf-8") as outfile:
-        outfile.write(book_html)
-    return html_file
+    try:
+        # finally, export the finished book html
+        if not os.path.exists(filepath):
+            os.makedirs(filepath)
+        with open(html_file, "w", encoding="utf-8") as outfile:
+            outfile.write(book_html)
+        return html_file
+    except Exception:
+        log.info("something went wrong")
 
 
 def generate_book_epub(book_json_or_file):
