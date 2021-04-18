@@ -345,69 +345,69 @@ def scrape_book_data(
 
     try:
         reader = driver.find_element_by_class_name("reader__container")
+
+        # get the book's metadata from the blinkist API using its ID
+        book_id = reader.get_attribute("data-book-id")
+        book_json = requests.get(url=f"https://api.blinkist.com/v4/books/{book_id}").json()
+        book = book_json["book"]
+
+        if match_language and book["language"] != match_language:
+            log.warning(
+                f"Book not available in the selected language ({match_language}), skipping scraping..."
+            )
+            return None, False
+
+        # sanitize the book's title and author since they will be used for paths and such
+        book["title"] = sanitize_name(book["title"])
+        book["author"] = sanitize_name(book["author"])
+
+        # check if the book's metadata already has chapter content
+        # (this is the case for the free book of the day)
+        json_needs_content = False
+        for chapter_json in book["chapters"]:
+            if not "text" in chapter_json:
+                json_needs_content = True
+                break
+            else:
+                # change the text content key name for compatibility with the script methods
+                chapter_json["content"] = chapter_json.pop("text")
+
+        if json_needs_content:
+            # scrape the chapter's content on the reader page
+            # and extend the book json data by inserting the scraped content
+            # in the appropriate chapter section to get a complete data file
+            book_chapters = driver.find_elements(By.CSS_SELECTOR, ".chapter.chapter")
+            for chapter in book_chapters:
+                chapter_no = chapter.get_attribute("data-chapterno")
+                chapter_content = chapter.find_element_by_class_name("chapter__content")
+                for chapter_json in book["chapters"]:
+                    if chapter_json["order_no"] == int(chapter_no):
+                        chapter_json["content"] = chapter_content.get_attribute("innerHTML")
+                        break
+
+            # look for any supplement sections
+            book_supplements = driver.find_elements(By.CSS_SELECTOR, ".chapter.supplement")
+            for supplement in book_supplements:
+                chapter_no = supplement.get_attribute("data-chapterno")
+                supplement_content = chapter.find_element_by_class_name("chapter__content")
+                for chapter_json in book["chapters"]:
+                    if chapter_json["order_no"] == int(chapter_no):
+                        if not chapter_json.get("supplement", None):
+                            supplement_text = supplement_content.get_attribute("innerHTML")
+                            chapter_json["supplement"] = supplement_text
+                        break
+
+        # if we are scraping by category, add it to the book metadata
+        book["category"] = category["label"]
+
+        # store the book json metadata for future use
+        dump_book(book)
+
+        # return a tuple with the book json metadata, and a boolean indicating whether
+        # the json dump already existed or not
+        return book, False
     except Exception:
         log.warning("something went wrong")
-
-    # get the book's metadata from the blinkist API using its ID
-    book_id = reader.get_attribute("data-book-id")
-    book_json = requests.get(url=f"https://api.blinkist.com/v4/books/{book_id}").json()
-    book = book_json["book"]
-
-    if match_language and book["language"] != match_language:
-        log.warning(
-            f"Book not available in the selected language ({match_language}), skipping scraping..."
-        )
-        return None, False
-
-    # sanitize the book's title and author since they will be used for paths and such
-    book["title"] = sanitize_name(book["title"])
-    book["author"] = sanitize_name(book["author"])
-
-    # check if the book's metadata already has chapter content
-    # (this is the case for the free book of the day)
-    json_needs_content = False
-    for chapter_json in book["chapters"]:
-        if not "text" in chapter_json:
-            json_needs_content = True
-            break
-        else:
-            # change the text content key name for compatibility with the script methods
-            chapter_json["content"] = chapter_json.pop("text")
-
-    if json_needs_content:
-        # scrape the chapter's content on the reader page
-        # and extend the book json data by inserting the scraped content
-        # in the appropriate chapter section to get a complete data file
-        book_chapters = driver.find_elements(By.CSS_SELECTOR, ".chapter.chapter")
-        for chapter in book_chapters:
-            chapter_no = chapter.get_attribute("data-chapterno")
-            chapter_content = chapter.find_element_by_class_name("chapter__content")
-            for chapter_json in book["chapters"]:
-                if chapter_json["order_no"] == int(chapter_no):
-                    chapter_json["content"] = chapter_content.get_attribute("innerHTML")
-                    break
-
-        # look for any supplement sections
-        book_supplements = driver.find_elements(By.CSS_SELECTOR, ".chapter.supplement")
-        for supplement in book_supplements:
-            chapter_no = supplement.get_attribute("data-chapterno")
-            supplement_content = chapter.find_element_by_class_name("chapter__content")
-            for chapter_json in book["chapters"]:
-                if chapter_json["order_no"] == int(chapter_no):
-                    if not chapter_json.get("supplement", None):
-                        supplement_text = supplement_content.get_attribute("innerHTML")
-                        chapter_json["supplement"] = supplement_text
-                    break
-
-    # if we are scraping by category, add it to the book metadata
-    book["category"] = category["label"]
-
-    # store the book json metadata for future use
-    dump_book(book)
-
-    # return a tuple with the book json metadata, and a boolean indicating whether
-    # the json dump already existed or not
-    return book, False
 
 
 def dump_book(book_json):
