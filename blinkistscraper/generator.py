@@ -60,7 +60,7 @@ def generate_book_html(book_json_or_file, cover_img_file=False):
             outfile.write(book_html)
         return html_file
     except Exception:
-        log.info("something went wrong")
+        log.warning("could not save html")
 
 
 def generate_book_epub(book_json_or_file):
