@@ -343,7 +343,10 @@ def scrape_book_data(
     # check for re-direct to the upgrade page
     detect_needs_upgrade(driver)
 
-    reader = driver.find_element_by_class_name("reader__container")
+    try:
+        reader = driver.find_element_by_class_name("reader__container")
+    except Exception:
+        log.info("something went wrong")
 
     # get the book's metadata from the blinkist API using its ID
     book_id = reader.get_attribute("data-book-id")
