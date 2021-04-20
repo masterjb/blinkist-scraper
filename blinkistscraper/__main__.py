@@ -218,44 +218,47 @@ def main():
             generator.generate_book_pdf(book_json, cover_img)
 
     def scrape_book(driver, processed_books, book_url, category, match_language):
-        book_json, dump_exists = scraper.scrape_book_data(
-            driver, book_url, category=category, match_language=match_language
-        )
-        if book_json:
-            cover_img_file = False
-            cover_tmp_file = False
-            if args.audio:
-                audio_files = scraped_audio_exists(book_json)
-                if not audio_files:
-                    audio_files = scraper.scrape_book_audio(
-                        driver, book_json, args.language
-                    )
-                if audio_files and args.concat_audio:
-                    if type(audio_files) == list:
-                        if args.embed_cover_art:
-                            cover_tmp_file = scraper.download_book_cover_image(
-                                book_json, filename="_cover.jpg",
-                                alt_file="cover.jpg"
-                            )
-                        generator.combine_audio(
-                            book_json, audio_files, args.keep_noncat,
-                            cover_tmp_file
+        try:
+            book_json, dump_exists = scraper.scrape_book_data(
+                driver, book_url, category=category, match_language=match_language
+            )
+            if book_json:
+                cover_img_file = False
+                cover_tmp_file = False
+                if args.audio:
+                    audio_files = scraped_audio_exists(book_json)
+                    if not audio_files:
+                        audio_files = scraper.scrape_book_audio(
+                            driver, book_json, args.language
                         )
-            if args.save_cover:
-                cover_img_file = scraper.download_book_cover_image(
-                    book_json, filename="cover.jpg", alt_file="_cover.jpg"
-                )
-                generate_book_outputs(book_json, cover_img=cover_img_file)
-            else:
-                generate_book_outputs(book_json)
-            if cover_tmp_file:
-                if os.path.exists(cover_tmp_file):
-                    log.debug(f"Deleting {cover_tmp_file}")
-                    os.remove(cover_tmp_file)
+                    if audio_files and args.concat_audio:
+                        if type(audio_files) == list:
+                            if args.embed_cover_art:
+                                cover_tmp_file = scraper.download_book_cover_image(
+                                    book_json, filename="_cover.jpg",
+                                    alt_file="cover.jpg"
+                                )
+                            generator.combine_audio(
+                                book_json, audio_files, args.keep_noncat,
+                                cover_tmp_file
+                            )
+                if args.save_cover:
+                    cover_img_file = scraper.download_book_cover_image(
+                        book_json, filename="cover.jpg", alt_file="_cover.jpg"
+                    )
+                    generate_book_outputs(book_json, cover_img=cover_img_file)
                 else:
-                    log.debug(f'Could not find "{cover_tmp_file}"')
-            processed_books.append(book_url)
-        return dump_exists
+                    generate_book_outputs(book_json)
+                if cover_tmp_file:
+                    if os.path.exists(cover_tmp_file):
+                        log.debug(f"Deleting {cover_tmp_file}")
+                        os.remove(cover_tmp_file)
+                    else:
+                        log.debug(f'Could not find "{cover_tmp_file}"')
+                processed_books.append(book_url)
+            return dump_exists
+        except Exception:
+            log.warning("could not scrape the book")
 
     def finish(start_time, processed_books, driver=None):
         if driver:
